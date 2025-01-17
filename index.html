@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>إدارة الأطباء (CSV) - أسلوب مضغوط</title>
+  <!-- Ensures the page is scaled to a mobile device's width -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+      direction: rtl;
+    }
+
+    h1, h2 {
+      color: teal;
+      margin-top: 0;
+    }
+
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+
+    /* Left Column: Form + Buttons */
+    .left-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Form styling */
+    form {
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      display: block;
+      margin: 6px 0 3px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+      width: calc(100% - 10px);
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      resize: none;
+    }
+
+    button {
+      display: inline-block;
+      background-color: teal;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+      margin-right: 5px;
+      margin-top: 5px;
+    }
+
+    button:hover {
+      background-color: #006666;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Right Column: Table */
+    .right-column {
+      flex: 1.8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: teal;
+      color: white;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    .actions button {
+      margin: 0 3px;
+    }
+
+    /* لون خاص لزر التعديل */
+    .edit-btn {
+      background-color: orange;
+    }
+    .edit-btn:hover {
+      background-color: darkorange;
+    }
+
+    /* لون خاص لزر الحذف */
+    .delete-btn {
+      background-color: crimson;
+    }
+    .delete-btn:hover {
+      background-color: darkred;
+    }
+
+    /* ============ Responsive Media Queries ============ */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .left-column, .right-column {
+        width: 100%;
+      }
+      form {
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>إدارة بيانات الأطباء (CSV) - واجهة مضغوطة</h1>
+
+<div class="container">
+  <!-- Left Column: Form, file input, and CSV export button -->
+  <div class="left-column">
+    <!-- Doctor Form -->
+    <form id="doctorForm" onsubmit="addOrUpdateDoctor(event)">
+      <label for="docId">المعرف (تلقائي):</label>
+      <input type="text" id="docId" disabled value="1" />
+
+      <label for="docName">الاسم:</label>
+      <input type="text" id="docName" required placeholder="أدخل اسم الطبيب" />
+
+      <label for="docSpec">التخصص:</label>
+      <select id="docSpec" required>
+        <option value="" disabled selected>اختر التخصص</option>
+        <!-- Populated from script -->
+      </select>
+
+      <label for="docPhone">الهاتف:</label>
+      <input type="text" id="docPhone" required placeholder="أدخل رقم الهاتف" />
+
+      <label for="docLoc">الموقع:</label>
+      <input type="text" id="docLoc" placeholder="أدخل موقع الطبيب" />
+
+      <label for="docNotes">ملاحظات:</label>
+      <textarea id="docNotes" rows="3" placeholder="أدخل أي ملاحظات إضافية"></textarea>
+
+      <button type="submit" id="saveBtn">حفظ الطبيب</button>
+    </form>
+
+    <!-- Buttons for CSV handling -->
+    <div>
+      <button onclick="exportToCSV()">تصدير كملف CSV</button>
+
+      <!-- Input for loading an existing CSV -->
+      <label style="display: block; margin-top: 10px;">
+        <span style="font-weight:bold; margin-bottom:5px;">فتح ملف CSV:</span>
+        <input type="file" id="csvFileInput" accept=".csv" onchange="importCSV(event)" />
+      </label>
+    </div>
+  </div>
+
+  <!-- Right Column: Doctors Table -->
+  <div class="right-column">
+    <h2>قائمة الأطباء</h2>
+    <table id="doctorsTable">
+      <thead>
+        <tr>
+          <th>المعرف</th>
+          <th>الاسم</th>
+          <th>التخصص</th>
+          <th>الهاتف</th>
+          <th>الموقع</th>
+          <th>ملاحظات</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Doctors will be listed here -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ======== Specialty List (Arabic) ========
+const allSpecialties = [
+  // General Specialties
+  { name: "طب الأسرة" }, // Family Medicine
+  { name: "أطفال" }, // Pediatrics General
+  { name: "أطفال اختصاصات دقيقة" }, // Pediatrics Specific
+  { name: "باطنية" }, // Internal Medicine
+  { name: "عيون" }, // Ophthalmology
+  { name: "أنف وأذن وحنجرة" }, // ENT
+  { name: "جلدية" }, // Dermatology
+  { name: "طب النساء والتوليد" }, // Gynecology & Obstetrics
+  { name: "طب نفسي" }, // Psychiatry
+  { name: "تخدير" }, // Anesthesia
+  { name: "الأشعة" }, // Radiology
+
+  // Surgical Specialties
+  { name: "جراحة" }, 
+  { name: "جراحة الأعصاب" }, 
+  { name: "جراحة الأطفال" }, 
+  { name: "جراحة التجميل" }, 
+  { name: "جراحة المسالك البولية" }, 
+  { name: "جراحة العظام" }, 
+  { name: "جراحة القلب والصدر" }, 
+
+  // Specialized Medicine
+  { name: "قلب" }, 
+  { name: "أمراض الجهاز الهضمي" }, 
+  { name: "أمراض الدم" }, 
+  { name: "أمراض المفاصل" }, 
+  { name: "أورام" }, 
+  { name: "أمراض الكلى" }, 
+  { name: "أمراض الصدر" }, 
+  { name: "مخ وأعصاب" }, 
+  { name: "غدد صماء وسكري" }, 
+  { name: "أمراض الحساسية" }, 
+  { name: "تغذية" }, 
+
+  // Dentistry & Oral Health
+  { name: "أسنان" }, 
+  { name: "تقويم الأسنان" }, 
+  { name: "جراحة الفم" }, 
+
+  // General Facilities
+  { name: "مستشفيات" }, 
+  { name: "مختبرات طبية" }, 
+  { name: "صيدليات" }, 
+  { name: "مراكز التأهيل" },
+];
+
+// ======== In-Memory Storage ========
+let doctorsList = [];
+let currentId = 1;
+
+// عند التحرير، نخزن المعرف هنا:
+let editingDoctorId = null;
+
+// Populate the specialty dropdown
+(function populateSpecialties() {
+  const docSpec = document.getElementById('docSpec');
+  allSpecialties.forEach((item) => {
+    const opt = document.createElement('option');
+    opt.value = item.name;
+    opt.textContent = item.name;
+    docSpec.appendChild(opt);
+  });
+})();
+
+/**
+ * إما إضافة طبيب جديد أو تحديث بيانات طبيب موجود.
+ */
+function addOrUpdateDoctor(event) {
+  event.preventDefault();
+
+  const name = document.getElementById('docName').value.trim();
+  const specialty = document.getElementById('docSpec').value; // التخصص
+  const phone = document.getElementById('docPhone').value.trim();
+  const location = document.getElementById('docLoc').value.trim();
+  const notes = document.getElementById('docNotes').value.trim();
+
+  const selectedSpecialty = specialty;
+
+  if (editingDoctorId) {
+    // تعديل بيانات الطبيب الحالي
+    const index = doctorsList.findIndex((doc) => doc.id === editingDoctorId);
+    if (index !== -1) {
+      doctorsList[index].name = name;
+      doctorsList[index].specialty = specialty;
+      doctorsList[index].phone = phone;
+      doctorsList[index].location = location;
+      doctorsList[index].notes = notes;
+    }
+    editingDoctorId = null;
+    document.getElementById('saveBtn').textContent = 'حفظ الطبيب';
+  } else {
+    // إضافة طبيب جديد
+    const newDoctor = {
+      id: currentId.toString(),
+      name,
+      specialty,
+      phone,
+      location,
+      notes,
+    };
+    doctorsList.push(newDoctor);
+    currentId++;
+  }
+
+  // إعادة ضبط النموذج
+  document.getElementById('doctorForm').reset();
+  document.getElementById('docId').value = currentId;
+  document.getElementById('docSpec').value = selectedSpecialty;
+
+  renderDoctorsTable();
+}
+
+/**
+ * تعبئة النموذج عند الضغط على "تعديل"
+ */
+function editDoctor(idStr) {
+  const doctor = doctorsList.find((doc) => doc.id === idStr);
+  if (!doctor) return;
+
+  document.getElementById('docId').value = doctor.id;
+  document.getElementById('docName').value = doctor.name;
+  document.getElementById('docSpec').value = doctor.specialty;
+  document.getElementById('docPhone').value = doctor.phone;
+  document.getElementById('docLoc').value = doctor.location;
+  document.getElementById('docNotes').value = doctor.notes;
+
+  editingDoctorId = idStr;
+  document.getElementById('saveBtn').textContent = 'تحديث الطبيب';
+}
+
+/**
+ * إزالة طبيب من القائمة
+ */
+function deleteDoctor(idStr) {
+  doctorsList = doctorsList.filter((doc) => doc.id !== idStr);
+  // إعادة تسلسل المعرفات
+  doctorsList.forEach((doc, index) => {
+    doc.id = (index + 1).toString();
+  });
+  currentId = doctorsList.length + 1;
+
+  if (editingDoctorId === idStr) {
+    editingDoctorId = null;
+    document.getElementById('saveBtn').textContent = 'حفظ الطبيب';
+    document.getElementById('doctorForm').reset();
+    document.getElementById('docId').value = currentId;
+  }
+
+  renderDoctorsTable();
+  document.getElementById('docId').value = currentId;
+}
+
+/**
+ * عرض قائمة الأطباء في الجدول
+ */
+function renderDoctorsTable() {
+  const tbody = document.querySelector('#doctorsTable tbody');
+  tbody.innerHTML = '';
+  doctorsList.forEach((doc) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${doc.id}</td>
+      <td>${doc.name}</td>
+      <td>${doc.specialty}</td>
+      <td>${doc.phone}</td>
+      <td>${doc.location}</td>
+      <td>${doc.notes}</td>
+      <td class="actions">
+        <button class="edit-btn" onclick="editDoctor('${doc.id}')">تعديل</button>
+        <button class="delete-btn" onclick="deleteDoctor('${doc.id}')">حذف</button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+/**
+ * تصدير البيانات إلى ملف CSV
+ */
+function exportToCSV() {
+  if (doctorsList.length === 0) {
+    alert('لا توجد بيانات للتصدير!');
+    return;
+  }
+
+  let csvContent = 'id,name,specialty,phone,location,notes\n';
+  doctorsList.forEach((doc) => {
+    const row = [
+      doc.id,
+      doc.name,
+      doc.specialty,
+      doc.phone,
+      doc.location,
+      doc.notes,
+    ].map((field) => `"${field.replace(/"/g, '""')}"`);
+    csvContent += row.join(',') + '\n';
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', 'doctors_data.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * استيراد بيانات CSV قائمة، ودمجها في القائمة الحالية
+ */
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const csvText = e.target.result;
+    parseCSV(csvText);
+  };
+  reader.readAsText(file);
+}
+
+/**
+ * تحليل نص CSV وإضافته إلى قائمة الأطباء
+ */
+function parseCSV(csvText) {
+  // الصيغة المتوقعة: id,name,specialty,phone,location,notes
+  const lines = csvText.trim().split('\n');
+  const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  if (header.length < 6) {
+    alert('تنسيق CSV غير صحيح!');
+    return;
+  }
+  const content = lines.slice(1);
+
+  content.forEach(line => {
+    if (!line.trim()) return;
+    const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"'));
+    // نتجاهل معرف الملف، ونستخدم currentId
+    const doc = {
+      id: currentId.toString(),
+      name: cols[1] || '',
+      specialty: cols[2] || '',
+      phone: cols[3] || '',
+      location: cols[4] || '',
+      notes: cols[5] || '',
+    };
+    doctorsList.push(doc);
+    currentId++;
+  });
+
+  renderDoctorsTable();
+  document.getElementById('docId').value = currentId;
+}
+</script>
+
+</body>
+</html>
